@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Resumex - Modern AI Resume Builder & PDF Generator</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Merriweather:ital,wght@0,300;0,400;0,700;1,300&display=swap" rel="stylesheet">
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- html2pdf.js for direct PDF download -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <!-- Supabase JS Client -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Header / Navigation -->
+  <header class="app-header">
+    <div class="header-container">
+      <div class="logo">
+        <div class="logo-icon">
+          <i class="fa-solid fa-file-invoice"></i>
+        </div>
+        <div class="logo-text">
+          <h1>Resume<span>Craft</span></h1>
+          <p class="tagline">Smart Blue & White Resume Creator</p>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <!-- Template Picker -->
+        <div class="template-selector">
+          <span class="selector-label"><i class="fa-solid fa-palette"></i> Template:</span>
+          <div class="template-pills">
+            <button type="button" class="template-btn active" data-template="colorful" id="btn-tmpl-color">
+              <span class="color-dot blue-dot"></span> Modern Blue
+            </button>
+            <button type="button" class="template-btn" data-template="plain" id="btn-tmpl-plain">
+              <span class="color-dot plain-dot"></span> Classic Plain (B&W)
+            </button>
+          </div>
+        </div>
+
+        <!-- Quick actions -->
+        <button type="button" class="btn btn-outline" id="load-sample-btn" title="Populate with realistic sample information">
+          <i class="fa-solid fa-wand-magic-sparkles"></i> Sample Data
+        </button>
+        <button type="button" class="btn btn-primary" id="generate-btn">
+          <i class="fa-solid fa-bolt"></i> Generate Resume
+        </button>
+        <button type="button" class="btn btn-accent" id="download-pdf-btn">
+          <i class="fa-solid fa-file-pdf"></i> Download PDF
+        </button>
+        <button type="button" class="btn btn-outline" id="save-cloud-btn" style="display: none;" title="Save resume data to Supabase">
+          <i class="fa-solid fa-cloud-arrow-up"></i> Save to Cloud
+        </button>
+
+        <!-- Supabase Auth Account Controls -->
+        <div class="auth-header-widget" id="auth-header-widget">
+          <button type="button" class="btn btn-outline" id="nav-login-btn">
+            <i class="fa-solid fa-arrow-right-to-bracket"></i> Sign In
+          </button>
+          <div class="user-badge" id="user-profile-badge" style="display: none;">
+            <div class="user-avatar-initial" id="user-initials" title="Account">U</div>
+            <span class="user-email-display" id="user-email-text">user@example.com</span>
+            <button type="button" class="btn-text-signout" id="nav-signout-btn" title="Sign Out">
+              <i class="fa-solid fa-arrow-right-from-bracket"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Mobile View Switcher (Visible on small screens) -->
+  <div class="mobile-tab-bar">
+    <button class="mobile-tab-btn active" id="tab-edit"><i class="fa-solid fa-pen-to-square"></i> Editor</button>
+    <button class="mobile-tab-btn" id="tab-preview"><i class="fa-solid fa-eye"></i> Live Preview</button>
+  </div>
+
+  <!-- Main Content Application Layout -->
+  <main class="app-layout">
+    <!-- LEFT PANEL: Editor & Input Forms -->
+    <section class="editor-pane" id="editor-section">
+      <div class="pane-header">
+        <h2><i class="fa-solid fa-sliders"></i> Resume Information</h2>
+        <div class="pane-actions">
+          <button type="button" class="btn-text" id="clear-form-btn" title="Reset all fields">
+            <i class="fa-solid fa-rotate-left"></i> Reset
+          </button>
+        </div>
+      </div>
+
+      <form id="resume-form" onsubmit="event.preventDefault();">
+        <!-- 1. Personal Details -->
+        <div class="accordion-item open">
+          <div class="accordion-header">
+            <div class="acc-title">
+              <span class="acc-badge"><i class="fa-solid fa-user"></i></span>
+              <h3>Personal Details</h3>
+            </div>
+            <i class="fa-solid fa-chevron-down acc-arrow"></i>
+          </div>
+          <div class="accordion-content">
+            <div class="form-grid">
+              <div class="form-group full-width photo-upload-group">
+                <label>Profile Picture (Optional)</label>
+                <div class="avatar-upload-wrapper">
+                  <div class="avatar-preview" id="avatar-preview-box">
+                    <i class="fa-regular fa-user" id="avatar-fallback-icon"></i>
+                    <img id="avatar-img" src="" alt="Avatar" style="display: none;">
+                  </div>
+                  <div class="avatar-controls">
+                    <label for="profile-photo-input" class="btn btn-sm btn-outline">
+                      <i class="fa-solid fa-cloud-arrow-up"></i> Upload Photo
+                    </label>
+                    <input type="file" id="profile-photo-input" accept="image/*" style="display: none;">
+                    <button type="button" class="btn btn-sm btn-text-danger" id="remove-photo-btn" style="display: none;">
+                      <i class="fa-solid fa-trash"></i> Remove
+                    </button>
+                    <p class="input-hint">Recommended: Square JPG/PNG under 2MB</p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-group half-width">
+                <label for="fullName">Full Name <span class="required">*</span></label>
+                <input type="text" id="fullName" placeholder="e.g. Alex Morgan" required>
+              </div>
+
+              <div class="form-group half-width">
+                <label for="jobTitle">Job Title / Headline <span class="required">*</span></label>
+                <input type="text" id="jobTitle" placeholder="e.g. Senior Software Engineer" required>
+              </div>
+
+              <div class="form-group half-width">
+                <label for="email"><i class="fa-regular fa-envelope"></i> Email Address <span class="required">*</span></label>
+                <input type="email" id="email" placeholder="alex.morgan@example.com" required>
+              </div>
+
+              <div class="form-group half-width">
+                <label for="phone"><i class="fa-solid fa-phone"></i> Phone Number</label>
+                <input type="tel" id="phone" placeholder="+1 (555) 345-6789">
+              </div>
+
+              <div class="form-group half-width">
+                <label for="location"><i class="fa-solid fa-location-dot"></i> Location</label>
+                <input type="text" id="location" placeholder="San Francisco, CA">
+              </div>
+
+              <div class="form-group half-width">
+                <label for="website"><i class="fa-solid fa-globe"></i> Portfolio / Website</label>
+                <input type="url" id="website" placeholder="https://alexmorgan.dev">
+              </div>
+
+              <div class="form-group half-width">
+                <label for="linkedin"><i class="fa-brands fa-linkedin"></i> LinkedIn</label>
+                <input type="text" id="linkedin" placeholder="linkedin.com/in/alexmorgan">
+              </div>
+
+              <div class="form-group half-width">
+                <label for="github"><i class="fa-brands fa-github"></i> GitHub</label>
+                <input type="text" id="github" placeholder="github.com/alexmorgan">
+              </div>
+
+              <div class="form-group full-width">
+                <label for="summary"><i class="fa-solid fa-align-left"></i> Professional Summary</label>
+                <textarea id="summary" rows="3" placeholder="Briefly describe your career background, key competencies, and what value you bring to prospective teams..."></textarea>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. Work Experience -->
+        <div class="accordion-item open">
+          <div class="accordion-header">
+            <div class="acc-title">
+              <span class="acc-badge"><i class="fa-solid fa-briefcase"></i></span>
+              <h3>Work Experience</h3>
+            </div>
+            <i class="fa-solid fa-chevron-down acc-arrow"></i>
+          </div>
+          <div class="accordion-content">
+            <div id="experience-list" class="dynamic-list">
+              <!-- Dynamically populated experience cards -->
+            </div>
+            <button type="button" class="btn btn-dashed full-width" id="add-experience-btn">
+              <i class="fa-solid fa-plus"></i> Add Work Experience
+            </button>
+          </div>
+        </div>
+
+        <!-- 3. Education -->
+        <div class="accordion-item open">
+          <div class="accordion-header">
+            <div class="acc-title">
+              <span class="acc-badge"><i class="fa-solid fa-graduation-cap"></i></span>
+              <h3>Education</h3>
+            </div>
+            <i class="fa-solid fa-chevron-down acc-arrow"></i>
+          </div>
+          <div class="accordion-content">
+            <div id="education-list" class="dynamic-list">
+              <!-- Dynamically populated education cards -->
+            </div>
+            <button type="button" class="btn btn-dashed full-width" id="add-education-btn">
+              <i class="fa-solid fa-plus"></i> Add Education
+            </button>
+          </div>
+        </div>
+
+        <!-- 4. Projects -->
+        <div class="accordion-item open">
+          <div class="accordion-header">
+            <div class="acc-title">
+              <span class="acc-badge"><i class="fa-solid fa-diagram-project"></i></span>
+              <h3>Key Projects</h3>
+            </div>
+            <i class="fa-solid fa-chevron-down acc-arrow"></i>
+          </div>
+          <div class="accordion-content">
+            <div id="project-list" class="dynamic-list">
+              <!-- Dynamically populated project cards -->
+            </div>
+            <button type="button" class="btn btn-dashed full-width" id="add-project-btn">
+              <i class="fa-solid fa-plus"></i> Add Project
+            </button>
+          </div>
+        </div>
+
+        <!-- 5. Skills -->
+        <div class="accordion-item open">
+          <div class="accordion-header">
+            <div class="acc-title">
+              <span class="acc-badge"><i class="fa-solid fa-laptop-code"></i></span>
+              <h3>Skills & Competencies</h3>
+            </div>
+            <i class="fa-solid fa-chevron-down acc-arrow"></i>
+          </div>
+          <div class="accordion-content">
+            <div class="form-group">
+              <label for="skills-input">Add Skills (Comma separated or press Enter)</label>
+              <div class="skill-input-container">
+                <input type="text" id="skills-input" placeholder="e.g. JavaScript, React, Node.js, System Design, SQL">
+                <button type="button" class="btn btn-sm btn-primary" id="add-skill-btn">Add</button>
+              </div>
+              <div id="skills-tag-cloud" class="skills-tag-cloud">
+                <!-- Skill chips -->
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 6. Certifications & Achievements -->
+        <div class="accordion-item">
+          <div class="accordion-header">
+            <div class="acc-title">
+              <span class="acc-badge"><i class="fa-solid fa-award"></i></span>
+              <h3>Certifications & Awards</h3>
+            </div>
+            <i class="fa-solid fa-chevron-down acc-arrow"></i>
+          </div>
+          <div class="accordion-content">
+            <div id="certifications-list" class="dynamic-list">
+              <!-- Dynamic cert cards -->
+            </div>
+            <button type="button" class="btn btn-dashed full-width" id="add-cert-btn">
+              <i class="fa-solid fa-plus"></i> Add Certification
+            </button>
+          </div>
+        </div>
+
+        <!-- Bottom action bar in form -->
+        <div class="form-bottom-actions">
+          <button type="button" class="btn btn-primary btn-lg full-width" id="generate-bottom-btn">
+            <i class="fa-solid fa-bolt"></i> Generate & Update Resume
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <!-- RIGHT PANEL: Live Resume Preview -->
+    <section class="preview-pane" id="preview-section">
+      <!-- Preview Toolbar -->
+      <div class="preview-toolbar">
+        <div class="toolbar-left">
+          <span class="preview-badge"><i class="fa-solid fa-circle-check text-success"></i> Live Preview</span>
+          <span class="template-indicator" id="current-template-label">Template: Modern Blue</span>
+        </div>
+        <div class="toolbar-right">
+          <!-- Zoom Controls -->
+          <div class="zoom-controls">
+            <button type="button" id="zoom-out-btn" class="tool-btn" title="Zoom Out"><i class="fa-solid fa-minus"></i></button>
+            <span id="zoom-level">100%</span>
+            <button type="button" id="zoom-in-btn" class="tool-btn" title="Zoom In"><i class="fa-solid fa-plus"></i></button>
+            <button type="button" id="zoom-reset-btn" class="tool-btn" title="Reset Zoom"><i class="fa-solid fa-compress"></i></button>
+          </div>
+          <button type="button" class="btn btn-sm btn-outline" id="print-resume-btn" title="Print document">
+            <i class="fa-solid fa-print"></i> Print
+          </button>
+          <button type="button" class="btn btn-sm btn-accent" id="preview-download-btn">
+            <i class="fa-solid fa-download"></i> PDF
+          </button>
+        </div>
+      </div>
+
+      <!-- Preview Paper Viewport -->
+      <div class="preview-viewport" id="preview-viewport">
+        <!-- The actual printable A4 Resume Canvas -->
+        <div class="resume-sheet theme-colorful" id="resume-document">
+          <!-- Dynamically Rendered via JavaScript -->
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Supabase Auth Modal for Free Download Gate -->
+  <div class="auth-modal-overlay" id="auth-modal" style="display: none;">
+    <div class="auth-modal-card">
+      <button type="button" class="auth-close-btn" id="auth-modal-close" aria-label="Close modal">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+
+      <div class="auth-modal-header">
+        <div class="auth-icon-badge">
+          <i class="fa-solid fa-file-arrow-down"></i>
+        </div>
+        <h2 id="auth-modal-title">Sign In to Download</h2>
+        <p id="auth-modal-subtitle">ResumeCraft is free to use! Simply sign in or create an account to download your PDF resume.</p>
+      </div>
+
+      <!-- Auth Tabs -->
+      <div class="auth-tabs">
+        <button type="button" class="auth-tab-btn active" id="tab-signin-btn">
+          <i class="fa-solid fa-arrow-right-to-bracket"></i> Sign In
+        </button>
+        <button type="button" class="auth-tab-btn" id="tab-signup-btn">
+          <i class="fa-solid fa-user-plus"></i> Create Free Account
+        </button>
+      </div>
+
+      <!-- Alert message banner -->
+      <div class="auth-alert" id="auth-alert" style="display: none;"></div>
+
+      <!-- Auth Form -->
+      <form id="auth-form" onsubmit="event.preventDefault();">
+        <div class="form-group">
+          <label for="auth-email"><i class="fa-regular fa-envelope"></i> Email Address</label>
+          <input type="email" id="auth-email" placeholder="you@example.com" required autocomplete="email">
+        </div>
+
+        <div class="form-group">
+          <label for="auth-password"><i class="fa-solid fa-key"></i> Password</label>
+          <div class="password-input-wrapper">
+            <input type="password" id="auth-password" placeholder="••••••••" required minlength="6" autocomplete="current-password">
+            <button type="button" class="pwd-toggle-btn" id="pwd-toggle-btn" title="Show/Hide Password">
+              <i class="fa-regular fa-eye" id="pwd-toggle-icon"></i>
+            </button>
+          </div>
+          <span class="input-hint" id="password-hint" style="display: none;">Minimum 6 characters</span>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-lg full-width auth-submit-btn" id="auth-submit-btn">
+          <span id="auth-submit-text">Sign In & Download PDF</span>
+          <i class="fa-solid fa-arrow-right" id="auth-submit-icon"></i>
+        </button>
+      </form>
+
+      <div class="auth-modal-footer">
+        <p id="auth-footer-prompt">Don't have an account yet? <a href="#" id="switch-to-signup">Sign up for free</a></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Notification Toast -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- Scripts -->
+  <script src="app.js"></script>
+</body>
+</html>
